@@ -4,6 +4,14 @@
 #include <QRegularExpression>
 #include <QStringList>
 
+#include <QFile>
+#include <QSaveFile>
+#include <QTextStream>
+#include <QStringConverter>
+
+#include <QFileDialog>
+#include <QMessageBox>
+
 static bool parseTicket(const QString &line, QStringList &result, QString &error)
 {
     error.clear();
@@ -36,6 +44,53 @@ static bool parseTicket(const QString &line, QStringList &result, QString &error
     }
 
     result = fields;
+    return true;
+}
+
+static bool readText(const QString &path, QString &result, QString &error)
+{
+    error.clear();
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        error = file.errorString();
+        return false;
+    }
+    if (file.size() > 2097152) {
+        error = "Файл превышает 2 МБ";
+        return false;
+    }
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+    const QString temporary = stream.readAll();
+    if (stream.status() != QTextStream::Ok) {
+        error = "Ошибка чтения текста";
+        return false;
+    }
+    result = temporary;
+    return true;
+}
+
+static bool writeText(const QString &path, const QString &text, QString &error)
+{
+    error.clear();
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        error = file.errorString();
+        return false;
+    }
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+    stream << text;
+    stream.flush();
+    if (stream.status() != QTextStream::Ok) {
+        error = "Ошибка записи текста";
+        file.cancelWriting();
+        return false;
+    }
+    if (!file.commit()) {
+        error = file.errorString();
+        return false;
+    }
     return true;
 }
 
@@ -80,4 +135,40 @@ void MainWindow::on_analyzeButton_clicked()
         ui->resultEdit->setPlainText(
             QString("Статус: ОШИБКА\nПричина: %1").arg(error));
     }
+}
+
+void MainWindow::on_openButton_clicked()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, "Открыть текст", QString(), "Текст (*.txt)");
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QString text, error;
+    if (!readText(path, text, error)) {
+        QMessageBox::warning(this, "Ошибка", error);
+        return;
+    }
+
+    ui->sourceEdit->setPlainText(text);
+    ui->sourceEdit->document()->setModified(false);
+}
+
+void MainWindow::on_saveButton_clicked()
+{
+    const QString path = QFileDialog::getSaveFileName(
+        this, "Сохранить текст", QString(), "Текст (*.txt)");
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QString error;
+    if (!writeText(path, ui->sourceEdit->toPlainText(), error)) {
+        QMessageBox::warning(this, "Ошибка", error);
+        return;
+    }
+
+    ui->sourceEdit->document()->setModified(false);
+    QMessageBox::information(this, "Успех", "Файл успешно сохранён!");
 }
