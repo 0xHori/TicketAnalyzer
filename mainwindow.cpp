@@ -225,3 +225,27 @@ void MainWindow::on_saveButton_clicked()
     ui->sourceEdit->document()->setModified(false);
     QMessageBox::information(this, "Успех", "Файл успешно сохранён!");
 }
+
+void MainWindow::on_exportButton_clicked()
+{
+    const QString report = ui->resultEdit->toPlainText();
+
+    if (report.trimmed().isEmpty()) {
+        QMessageBox::warning(this, "Экспорт", "Отчёт пуст. Сначала выполните анализ.");
+        return;
+    }
+
+    const QString path = QFileDialog::getSaveFileName(
+        this, "Экспорт отчёта", QString(), "Текст (*.txt)");
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QString error;
+    if (!writeText(path, report, error)) {
+        QMessageBox::warning(this, "Ошибка", error);
+        return;
+    }
+
+    QMessageBox::information(this, "Успех", "Отчёт успешно сохранён.");
+}
