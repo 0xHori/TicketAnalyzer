@@ -99,6 +99,10 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    ui->resultEdit->setReadOnly(true);
+
+    connect(ui->sourceEdit, &QPlainTextEdit::textChanged,
+            this, &MainWindow::on_sourceEdit_textChanged);
 }
 
 MainWindow::~MainWindow()
@@ -192,6 +196,10 @@ void MainWindow::on_analyzeButton_clicked()
 
 void MainWindow::on_openButton_clicked()
 {
+    if (!maybeSave()) {
+        return;
+    }
+
     const QString path = QFileDialog::getOpenFileName(
         this, "Открыть текст", QString(), "Текст (*.txt)");
     if (path.isEmpty()) {
@@ -206,6 +214,7 @@ void MainWindow::on_openButton_clicked()
 
     ui->sourceEdit->setPlainText(text);
     ui->sourceEdit->document()->setModified(false);
+    ui->resultEdit->clear();
 }
 
 void MainWindow::on_saveButton_clicked()
@@ -248,4 +257,43 @@ void MainWindow::on_exportButton_clicked()
     }
 
     QMessageBox::information(this, "Успех", "Отчёт успешно сохранён.");
+}
+
+void MainWindow::on_sourceEdit_textChanged()
+{
+    ui->resultEdit->clear();
+}
+
+bool MainWindow::maybeSave()
+{
+    if (!ui->sourceEdit->document()->isModified()) {
+        return true;
+    }
+
+    QMessageBox msgBox(this);
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setWindowTitle("Сохранение");
+    msgBox.setText("Исходный текст был изменён. Сохранить изменения?");
+    QPushButton *saveBtn = msgBox.addButton("Сохранить", QMessageBox::AcceptRole);
+    QPushButton *discardBtn = msgBox.addButton("Не сохранять", QMessageBox::DestructiveRole);
+    msgBox.addButton("Отмена", QMessageBox::RejectRole);
+
+    msgBox.exec();
+
+    if (msgBox.clickedButton() == saveBtn) {
+        on_saveButton_clicked();
+        return !ui->sourceEdit->document()->isModified();
+    } else if (msgBox.clickedButton() == discardBtn) {
+        return true;
+    }
+    return false;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (maybeSave()) {
+        event->accept();
+    } else {
+        event->ignore();
+    }
 }

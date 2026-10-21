@@ -1,0 +1,13 @@
+101;anna@example.com;Не запускается игра
+
+102;boris@example.com;Нет звука
+103;invalid;Ошибка игры
+104;anna@example.com;Игра закрывается
+105;olga@example.com;Вопрос
+ошибочная строка
+201;user1@mail.ru;Зависает при загрузке
+202;user2@test.com;Игра вылетает в меню
+203;user3@domain.org;Пропал русский язык
+095;user4@mail.ru;Неверный номер меньше ста
+301;user5@mail.ru;   
+302;user6@mail.ru;Описание;с лишним разделителем
