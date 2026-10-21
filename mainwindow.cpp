@@ -108,33 +108,86 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_analyzeButton_clicked()
 {
-    const QString text = ui->sourceEdit->toPlainText();
-    const QStringList lines = text.split('\n', Qt::KeepEmptyParts);
-
-    if (lines.isEmpty() || lines[0].trimmed().isEmpty()) {
-        ui->resultEdit->setPlainText("Поле ввода пусто!");
+    const QString query = ui->queryEdit->text().trimmed();
+    if (query.size() > 100) {
+        QMessageBox::warning(this, "Ошибка", "Длина запроса не должна превышать 100 единиц UTF-16");
         return;
     }
 
-    QString testLine;
-    for (const QString &l : lines) {
-        if (!l.trimmed().isEmpty()) {
-            testLine = l;
-            break;
+    const QString text = ui->sourceEdit->toPlainText();
+    const QStringList lines = text.split('\n');
+
+    qsizetype nonEmptyCount = 0;
+    for (const QString &line : lines) {
+        if (!line.trimmed().isEmpty()) {
+            ++nonEmptyCount;
         }
     }
 
-    QStringList fields;
-    QString error;
-
-    if (parseTicket(testLine, fields, error)) {
-        ui->resultEdit->setPlainText(
-            QString("Статус: УСПЕХ\nНомер: %1\nEmail: %2\nОписание: %3")
-                .arg(fields[0], fields[1], fields[2]));
-    } else {
-        ui->resultEdit->setPlainText(
-            QString("Статус: ОШИБКА\nПричина: %1").arg(error));
+    if (nonEmptyCount > 10000) {
+        QMessageBox::warning(this, "Ошибка", "Превышено ограничение: более 10 000 непустых строк");
+        return;
     }
+
+    qsizetype validCount = 0;
+    qsizetype errorCount = 0;
+    QStringList errors;
+    QStringList matches;
+    QStringList emails;
+
+    for (qsizetype i = 0; i < lines.size(); ++i) {
+        if (lines[i].trimmed().isEmpty()) {
+            continue;
+        }
+
+        QStringList fields;
+        QString error;
+        if (!parseTicket(lines[i], fields, error)) {
+            ++errorCount;
+            errors.append(QString("Строка %1: %2").arg(i + 1).arg(error));
+            continue;
+        }
+
+        ++validCount;
+        emails.append(fields[1]);
+
+        if (!query.isEmpty() && fields[2].contains(query, Qt::CaseInsensitive)) {
+            matches.append(fields.join(';'));
+        }
+    }
+
+    QStringList report;
+    report.append(QString("Непустых строк: %1").arg(nonEmptyCount));
+    report.append(QString("Корректных записей: %1").arg(validCount));
+    report.append(QString("Ошибочных записей: %1").arg(errorCount));
+    report.append("");
+
+    report.append("--- Найденные обращения ---");
+    if (query.isEmpty()) {
+        report.append("Поиск не задан (совпадений: 0)");
+    } else if (matches.isEmpty()) {
+        report.append("Нет");
+    } else {
+        report.append(matches.join('\n'));
+    }
+    report.append("");
+
+    report.append("--- Список Email ---");
+    if (emails.isEmpty()) {
+        report.append("Нет");
+    } else {
+        report.append(emails.join('\n'));
+    }
+    report.append("");
+
+    report.append("--- Список ошибок ---");
+    if (errors.isEmpty()) {
+        report.append("Нет");
+    } else {
+        report.append(errors.join('\n'));
+    }
+
+    ui->resultEdit->setPlainText(report.join('\n'));
 }
 
 void MainWindow::on_openButton_clicked()
